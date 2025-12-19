@@ -32,7 +32,7 @@ jobs:
           ECR_REPOSITORY: fullstack-sre
           IMAGE_TAG: latest
         run: |
-          docker build -t $ECR_REPOSITORY:$IMAGE_TAG -f codebase/rdicidr-0.1.0/Dockerfile codebase/rdicidr-0.1.0s
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG -f codebase/rdicidr-0.1.0/Dockerfile codebase/rdicidr-0.1.0
           docker tag $ECR_REPOSITORY:$IMAGE_TAG \
             $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
           docker push \
