@@ -77,4 +77,4 @@ jobs:
           
           ECR_PASS=$(aws ecr get-login-password --region us-east-1)
 
-          ssh -i /tmp/key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "docker stop \$(docker ps -aq) 2>/dev/null || true && docker rm \$(docker ps -aq) 2>/dev/null || true && echo '$ECR_PASS' | docker login --username AWS --password-stdin 183631345736.dkr.ecr.us-east-1.amazonaws.com && docker pull 183631345736.dkr.ecr.us-east-1.amazonaws.com/fullstack-sre:latest && docker run -d --name app -p 80:3000 --restart unless-stopped 183631345736.dkr.ecr.us-east-1.amazonaws.com/fullstack-sre:latest"
+          ssh -i /tmp/key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "sudo fuser -k 80/tcp || true && docker container prune -f && echo '$ECR_PASS' | docker login --username AWS --password-stdin 183631345736.dkr.ecr.us-east-1.amazonaws.com && docker pull 183631345736.dkr.ecr.us-east-1.amazonaws.com/fullstack-sre:latest && docker run -d --name app -p 80:3000 --restart unless-stopped 183631345736.dkr.ecr.us-east-1.amazonaws.com/fullstack-sre:latest"
