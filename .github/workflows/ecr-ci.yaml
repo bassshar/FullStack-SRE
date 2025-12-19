@@ -65,19 +65,15 @@ jobs:
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
+         host: ${{ secrets.EC2_HOST }}
+         username: ${{ secrets.EC2_USER }}
+         key: ${{ secrets.EC2_SSH_KEY }}
+         key_path: /tmp/key.pem
+         script: |
+            echo "${{ secrets.EC2_SSH_KEY }}" | base64 --decode > /tmp/key.pem
+            chmod 600 /tmp/key.pem
             docker stop app || true
             docker rm app || true
-
             aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 183631345736.dkr.ecr.us-east-1.amazonaws.com
-
             docker pull 183631345736.dkr.ecr.us-east-1.amazonaws.com/fullstack-sre:latest
-
-            docker run -d \
-              --name app \
-              -p 80:3000 \
-              --restart unless-stopped \
-              183631345736.dkr.ecr.us-east-1.amazonaws.com/fullstack-sre:latest
+            docker run -d --name app -p 80:3000 --restart unless-stopped 183631345736.dkr.ecr.us-east-1.amazonaws.com/fullstack-sre:latest
