@@ -19,12 +19,12 @@ jobs:
       - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::183631345736:role/haris_user
+          role-to-assume: arn:aws:iam::183631345736:role/githubaction-fullstack-sre
+
           aws-region: us-east-1
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
-
       - name: Build, tag, and push Docker image
         env:
           AWS_ACCOUNT_ID: 183631345736
