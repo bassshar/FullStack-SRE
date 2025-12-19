@@ -57,22 +57,36 @@ jobs:
           docker push \
             $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
-  deploy-to-ec2:
+    deploy-to-ec2:
     needs: build-and-push
     runs-on: ubuntu-latest
 
     steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::183631345736:role/githubaction-fullstack-sre
+          aws-region: us-east-1
+          
+      - name: Get ECR login password
+        id: ecr-password
+        run: |
+          ECR_PASSWORD=$(aws ecr get-login-password --region us-east-1)
+          echo "::add-mask::$ECR_PASSWORD"
+          echo "password=$ECR_PASSWORD" >> $GITHUB_OUTPUT
+
       - name: Deploy to EC2 via SSH
         env:
           SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          ECR_PASSWORD: ${{ steps.ecr-password.outputs.password }}
         run: |
           echo "$SSH_KEY" > /tmp/key.pem
           chmod 600 /tmp/key.pem
           
-          ssh -i /tmp/key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -i /tmp/key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
             docker stop app || true
             docker rm app || true
-            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 183631345736.dkr.ecr.us-east-1.amazonaws.com
+            echo "$ECR_PASSWORD" | docker login --username AWS --password-stdin 183631345736.dkr.ecr.us-east-1.amazonaws.com
             docker pull 183631345736.dkr.ecr.us-east-1.amazonaws.com/fullstack-sre:latest
             docker run -d --name app -p 80:3000 --restart unless-stopped 183631345736.dkr.ecr.us-east-1.amazonaws.com/fullstack-sre:latest
           EOF
