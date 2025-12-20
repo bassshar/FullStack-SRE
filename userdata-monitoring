@@ -1,0 +1,120 @@
+#!/bin/bash
+# -------------------------------
+# Prometheus + NGINX EC2
+# Fully automated
+# -------------------------------
+
+set -e
+
+APP_PRIVATE_IP="172.31.19.14"
+BASIC_AUTH_USER="monitoringuser"
+BASIC_AUTH_PASS="password123"
+PROMETHEUS_VERSION="2.49.0"
+NODE_EXPORTER_VERSION="1.6.1"
+
+# -------------------------------
+# Update OS
+# -------------------------------
+dnf update -y
+
+# -------------------------------
+# Create directories for Prometheus
+# -------------------------------
+mkdir -p /opt/prometheus
+mkdir -p /opt/prometheus/data
+chown -R ec2-user:ec2-user /opt/prometheus
+
+# -------------------------------
+# Download Prometheus
+# -------------------------------
+cd /opt
+curl -LO https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
+tar xvf prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
+mv prometheus-${PROMETHEUS_VERSION}.linux-amd64 prometheus
+chown -R ec2-user:ec2-user prometheus
+
+# -------------------------------
+# Configure Prometheus
+# -------------------------------
+cat > /opt/prometheus/prometheus.yml <<EOL
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "node_exporter"
+    static_configs:
+      - targets: ["$APP_PRIVATE_IP:9100"]
+EOL
+
+# -------------------------------
+# Prometheus systemd service
+# -------------------------------
+cat > /etc/systemd/system/prometheus.service <<EOL
+[Unit]
+Description=Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=ec2-user
+Group=ec2-user
+Type=simple
+ExecStart=/opt/prometheus/prometheus \
+  --config.file=/opt/prometheus/prometheus.yml \
+  --storage.tsdb.path=/opt/prometheus/data
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+systemctl daemon-reload
+systemctl enable prometheus
+systemctl start prometheus
+
+# -------------------------------
+# Install NGINX
+# -------------------------------
+dnf install -y nginx httpd-tools
+systemctl enable nginx
+systemctl start nginx
+
+# -------------------------------
+# Setup basic authentication
+# -------------------------------
+htpasswd -bc /etc/nginx/.htpasswd $BASIC_AUTH_USER $BASIC_AUTH_PASS
+
+# -------------------------------
+# Configure NGINX reverse proxy
+# -------------------------------
+cat > /etc/nginx/conf.d/prometheus.conf <<EOL
+server {
+    listen 80;
+
+    # Prometheus UI
+    location / {
+        auth_basic "Restricted";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        proxy_pass http://localhost:9090/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+
+    # Node Exporter metrics via NGINX
+    location /metrics/ {
+        auth_basic "Restricted";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        proxy_pass http://$APP_PRIVATE_IP:9100/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+}
+EOL
+
+# -------------------------------
+# Restart NGINX
+# -------------------------------
+systemctl restart nginx
+
+echo "Prometheus + NGINX setup complete!"
