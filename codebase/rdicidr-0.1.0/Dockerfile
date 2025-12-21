@@ -7,17 +7,15 @@ RUN npm install
 
 COPY . .
 RUN npm run build
-
+#second stage
 FROM nginx:alpine
-
 RUN rm /etc/nginx/conf.d/default.conf
-
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-
 
 WORKDIR /usr/share/nginx/html
 RUN rm -rf ./*
-COPY --from=builder /app/build /usr/share/nginx/html/
+COPY --from=builder /app/build .
+
 
 EXPOSE 80
 
